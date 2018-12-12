@@ -20,11 +20,12 @@ type alias Model =
     , hints : Int
     , errors : Int
     , discard : List Card
-    , deck : List Card
+    , deck : Deck
     , played : Game
     }
 
 
+initModel : Model
 initModel =
     { players = []
     , turn = Nothing
@@ -55,7 +56,7 @@ init =
 
 type Msg
     = NoOp
-    | GeneratedDeck (List Card)
+    | GeneratedDeck Deck
     | Discard Val Col
     | Play Val Col
     | HintValue Player Val
@@ -73,8 +74,72 @@ type alias Game =
 
 type alias Player =
     { name : String
-    , hand : List Card
+    , hand : List HandCard
     }
+
+
+type alias HandCard =
+    { card : Card
+    , hints : Hints
+    }
+
+
+type alias Hints =
+    { colors :
+        { red : Maybe Bool
+        , green : Maybe Bool
+        , yellow : Maybe Bool
+        , blue : Maybe Bool
+        , white : Maybe Bool
+        }
+    , values :
+        { one : Maybe Bool
+        , two : Maybe Bool
+        , three : Maybe Bool
+        , four : Maybe Bool
+        , five : Maybe Bool
+        }
+    }
+
+
+type alias Deck =
+    List Card
+
+
+noHints : Hints
+noHints =
+    { colors =
+        { red = Nothing
+        , green = Nothing
+        , yellow = Nothing
+        , blue = Nothing
+        , white = Nothing
+        }
+    , values =
+        { one = Nothing
+        , two = Nothing
+        , three = Nothing
+        , four = Nothing
+        , five = Nothing
+        }
+    }
+
+
+cardToHand : Card -> HandCard
+cardToHand card =
+    { card = card
+    , hints = noHints
+    }
+
+
+drawCard : Deck -> ( Maybe Card, Deck )
+drawCard d =
+    case d of
+        [] ->
+            ( Nothing, [] )
+
+        top :: rest ->
+            ( Just top, rest )
 
 
 type Card
@@ -89,6 +154,7 @@ type Val
     | Five
 
 
+valToString : Val -> String
 valToString val =
     case val of
         One ->
@@ -107,6 +173,7 @@ valToString val =
             "Five"
 
 
+valToNumber : Val -> Int
 valToNumber val =
     case val of
         One ->
@@ -125,8 +192,14 @@ valToNumber val =
             5
 
 
+allVal : List Val
 allVal =
-    [ One, Two, Three, Four, Five ]
+    [ One
+    , Two
+    , Three
+    , Four
+    , Five
+    ]
 
 
 type Col
@@ -137,10 +210,17 @@ type Col
     | White
 
 
+allCol : List Col
 allCol =
-    [ Red, Green, Blue, Yellow, White ]
+    [ Red
+    , Green
+    , Blue
+    , Yellow
+    , White
+    ]
 
 
+colToString : Col -> String
 colToString col =
     case col of
         Red ->
@@ -159,6 +239,7 @@ colToString col =
             "White"
 
 
+colToColor : Col -> Color
 colToColor col =
     case col of
         Red ->
@@ -177,18 +258,22 @@ colToColor col =
             rgb255 146 189 74
 
 
+cardColor : Color
 cardColor =
     rgb255 50 40 103
 
 
+blackColor : Color
 blackColor =
     rgb255 0 0 0
 
 
+lightGrey : Color
 lightGrey =
     rgb255 240 240 240
 
 
+darkGrey : Color
 darkGrey =
     rgb255 140 140 140
 
@@ -271,6 +356,10 @@ main =
         , update = update
         , subscriptions = always Sub.none
         }
+
+
+
+---- RANDOM ----
 
 
 randomInt : Random.Generator Int
