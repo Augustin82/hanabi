@@ -16,7 +16,7 @@ import Random
 
 type alias Model =
     { players : List Player
-    , turn : Maybe Player
+    , turn : Maybe String
     , hints : Int
     , errors : Int
     , discard : List Card
@@ -31,7 +31,7 @@ initModel =
         [ { defaultPlayer | name = "Alice" }
         , { defaultPlayer | name = "Bob" }
         ]
-    , turn = Nothing
+    , turn = Just "Alice"
     , hints = 8
     , errors = 0
     , discard = []
@@ -404,25 +404,47 @@ view : Model -> Html Msg
 view model =
     layout [ Background.color lightGrey ] <|
         column [ padding 5, spacing 5 ] <|
-            List.map
-                (\player ->
-                    column []
-                        [ el [] <|
-                            text player.name
-                        , row
-                            [ padding 5
-                            , spacing 5
-                            ]
-                          <|
-                            List.map (\(Card val col) -> viewCard (Just val) (Just col)) <|
-                                List.map .card player.hand
-                        ]
-                )
+            List.map (viewPlayerHand model.turn) <|
                 model.players
 
 
+viewCardOfOthers : Card -> Element msg
+viewCardOfOthers (Card val col) =
+    viewCard (Just val) (Just col)
 
--- List.map (\(Card val col) -> viewCard (Just val) (Just col)) model.deck
+
+viewOwnCard : Card -> Element msg
+viewOwnCard card =
+    viewCard Nothing Nothing
+
+
+viewPlayerHand : Maybe String -> Player -> Element msg
+viewPlayerHand turn player =
+    column []
+        [ el [] <|
+            text player.name
+        , row
+            [ padding 5
+            , spacing 5
+            ]
+          <|
+            (player
+                |> .hand
+                |> List.map .card
+                |> List.map
+                    (turn
+                        |> Maybe.map
+                            (\n ->
+                                if n == player.name then
+                                    viewOwnCard
+
+                                else
+                                    viewCardOfOthers
+                            )
+                        |> Maybe.withDefault viewCardOfOthers
+                    )
+            )
+        ]
 
 
 viewCard : Maybe Val -> Maybe Col -> Element msg
