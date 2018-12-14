@@ -27,7 +27,10 @@ type alias Model =
 
 initModel : Model
 initModel =
-    { players = []
+    { players =
+        [ { defaultPlayer | name = "Alice" }
+        , { defaultPlayer | name = "Bob" }
+        ]
     , turn = Nothing
     , hints = 8
     , errors = 0
@@ -78,6 +81,12 @@ type alias Player =
     }
 
 
+defaultPlayer =
+    { name = ""
+    , hand = []
+    }
+
+
 type alias HandCard =
     { card : Card
     , hints : Hints
@@ -125,11 +134,16 @@ noHints =
     }
 
 
-cardToHand : Card -> HandCard
-cardToHand card =
+cardToHandCard : Card -> HandCard
+cardToHandCard card =
     { card = card
     , hints = noHints
     }
+
+
+addCardToHand : Card -> Player -> Player
+addCardToHand card player =
+    { player | hand = { card = card, hints = noHints } :: player.hand }
 
 
 drawCard : Deck -> ( Maybe Card, Deck )
@@ -295,14 +309,91 @@ deck =
         |> List.concat
 
 
+cardsPerHand : List Player -> Int
+cardsPerHand players =
+    case List.length players of
+        2 ->
+            5
+
+        3 ->
+            5
+
+        4 ->
+            4
+
+        _ ->
+            0
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GeneratedDeck newDeck ->
-            ( { model | deck = newDeck }, Cmd.none )
+            ( distributeHands { model | deck = newDeck }, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
+
+
+fullHands model =
+    List.foldr (\cur acc -> acc && (List.length cur.hand == cardsPerHand model.players)) True model.players
+
+
+distributeHands : Model -> Model
+distributeHands model =
+    case List.map .name model.players of
+        current :: next :: rest ->
+            giveTopCardToPlayer current next rest model
+
+        _ ->
+            model
+
+
+giveTopCardToPlayer : String -> String -> List String -> Model -> Model
+giveTopCardToPlayer currentName nextName restNames model =
+    if fullHands model then
+        model
+
+    else
+        let
+            players =
+                model.players
+
+            cards =
+                model.deck
+
+            newCurrent =
+                nextName
+
+            ( newNext, newRest ) =
+                case restNames of
+                    n :: r ->
+                        ( n, r ++ [ currentName ] )
+
+                    [] ->
+                        ( currentName, [] )
+        in
+        case cards of
+            [] ->
+                model
+
+            top :: rest ->
+                let
+                    newPlayers =
+                        players
+                            |> List.map
+                                (\p ->
+                                    if p.name == currentName then
+                                        addCardToHand top p
+
+                                    else
+                                        p
+                                )
+
+                    newModel =
+                        { model | players = newPlayers, deck = rest }
+                in
+                giveTopCardToPlayer newCurrent newNext newRest newModel
 
 
 
@@ -313,7 +404,25 @@ view : Model -> Html Msg
 view model =
     layout [ Background.color lightGrey ] <|
         column [ padding 5, spacing 5 ] <|
-            List.map (\(Card val col) -> viewCard (Just val) (Just col)) model.deck
+            List.map
+                (\player ->
+                    column []
+                        [ el [] <|
+                            text player.name
+                        , row
+                            [ padding 5
+                            , spacing 5
+                            ]
+                          <|
+                            List.map (\(Card val col) -> viewCard (Just val) (Just col)) <|
+                                List.map .card player.hand
+                        ]
+                )
+                model.players
+
+
+
+-- List.map (\(Card val col) -> viewCard (Just val) (Just col)) model.deck
 
 
 viewCard : Maybe Val -> Maybe Col -> Element msg
