@@ -4,9 +4,11 @@ import Browser
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events as Events
 import Element.Font as Font
 import Html exposing (Html)
 import Html.Attributes as HA
+import List.Extra as LE
 import Random
 
 
@@ -16,7 +18,7 @@ import Random
 
 type alias Model =
     { players : List Player
-    , turn : Maybe String
+    , turn : String
     , hints : Int
     , errors : Int
     , discard : List Card
@@ -31,7 +33,7 @@ initModel =
         [ { defaultPlayer | name = "Alice" }
         , { defaultPlayer | name = "Bob" }
         ]
-    , turn = Just "Alice"
+    , turn = "Alice"
     , hints = 8
     , errors = 0
     , discard = []
@@ -62,8 +64,8 @@ type Msg
     | GeneratedDeck Deck
     | Discard Val Col
     | Play Val Col
-    | HintValue Player Val
-    | HintColor Player Col
+    | HintValue String Val
+    | HintColor String Col
 
 
 type alias Game =
@@ -331,6 +333,21 @@ update msg model =
         GeneratedDeck newDeck ->
             ( distributeHands { model | deck = newDeck }, Cmd.none )
 
+        HintColor playerName color ->
+            let
+                currentNameIndex =
+                    model.players
+                        |> LE.findIndex (\p -> model.turn == p.name)
+                        |> Maybe.withDefault 0
+
+                newName =
+                    model.players
+                        |> LE.getAt (modBy (List.length model.players) <| 1 + currentNameIndex)
+                        |> Maybe.map .name
+                        |> Maybe.withDefault model.turn
+            in
+            ( { model | turn = newName, hints = model.hints - 1 }, Cmd.none )
+
         _ ->
             ( model, Cmd.none )
 
@@ -408,9 +425,9 @@ view model =
                 model.players
 
 
-viewCardOfOthers : Card -> Element msg
-viewCardOfOthers (Card val col) =
-    viewCard (Just val) (Just col)
+viewCardOfOthers : String -> Card -> Element Msg
+viewCardOfOthers name (Card val col) =
+    el [ Events.onClick <| HintColor name col ] <| viewCard (Just val) (Just col)
 
 
 viewOwnCard : Card -> Element msg
@@ -418,7 +435,7 @@ viewOwnCard card =
     viewCard Nothing Nothing
 
 
-viewPlayerHand : Maybe String -> Player -> Element msg
+viewPlayerHand : String -> Player -> Element Msg
 viewPlayerHand turn player =
     column []
         [ el [] <|
@@ -432,16 +449,11 @@ viewPlayerHand turn player =
                 |> .hand
                 |> List.map .card
                 |> List.map
-                    (turn
-                        |> Maybe.map
-                            (\n ->
-                                if n == player.name then
-                                    viewOwnCard
+                    (if turn == player.name then
+                        viewOwnCard
 
-                                else
-                                    viewCardOfOthers
-                            )
-                        |> Maybe.withDefault viewCardOfOthers
+                     else
+                        viewCardOfOthers player.name
                     )
             )
         ]
